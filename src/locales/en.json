@@ -39,6 +39,9 @@
         "dataExport": "Data Export",
         "categoriesManage": "Categories",
         "refundRequests": "Refund Requests",
+        "action": "Action",
+        "actions": "Actions",
+        "customers": "Customers",
         "yes": "Yes",
         "no": "No"
     },

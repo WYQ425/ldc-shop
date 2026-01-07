@@ -39,6 +39,9 @@
         "dataExport": "数据导出",
         "categoriesManage": "分类管理",
         "refundRequests": "退款申请",
+        "action": "操作",
+        "actions": "操作",
+        "customers": "顾客管理",
         "yes": "是",
         "no": "否"
     },

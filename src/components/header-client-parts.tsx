@@ -35,12 +35,20 @@ export function HeaderNav({ isAdmin }: { isAdmin: boolean }) {
     return (
         <>
             {isAdmin && (
-                <Link
-                    href="/admin"
-                    className="hidden lg:flex items-center text-sm font-medium text-muted-foreground hover:text-primary"
-                >
-                    {t('common.admin')}
-                </Link>
+                <>
+                    <Link
+                        href="/admin"
+                        className="hidden lg:flex items-center text-sm font-medium text-muted-foreground hover:text-primary"
+                    >
+                        {t('common.admin')}
+                    </Link>
+                    <Link
+                        href="/admin/users"
+                        className="hidden lg:flex items-center text-sm font-medium text-muted-foreground hover:text-primary"
+                    >
+                        {t('common.customers')}
+                    </Link>
+                </>
             )}
         </>
     )
