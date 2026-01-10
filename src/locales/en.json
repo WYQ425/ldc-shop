@@ -53,10 +53,10 @@
         "subtitle": "A virtual goods shop for the Linux DO ecosystem",
         "noProducts": "No products available yet.",
         "checkBackLater": "Check back later!",
-        "visitorCount": "Total Visitors: {count}",
+        "visitorCount": "Total Visitors: {{count}}",
         "pendingOrder": {
-            "single": "You have 1 unpaid order: {orderId}",
-            "multiple": "You have {count} unpaid orders",
+            "single": "You have 1 unpaid order: {{orderId}}",
+            "multiple": "You have {{count}} unpaid orders",
             "view": "View",
             "pay": "Pay Now"
         },

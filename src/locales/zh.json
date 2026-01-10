@@ -53,10 +53,10 @@
         "subtitle": "为 Linux DO 生态打造的虚拟商品商店",
         "noProducts": "暂无商品",
         "checkBackLater": "请稍后再来！",
-        "visitorCount": "累计访客数：{count}",
+        "visitorCount": "累计访客数：{{count}}",
         "pendingOrder": {
-            "single": "您有一笔待支付订单：{orderId}",
-            "multiple": "您有 {count} 笔待支付订单",
+            "single": "您有一笔待支付订单：{{orderId}}",
+            "multiple": "您有 {{count}} 笔待支付订单",
             "view": "查看",
             "pay": "立即支付"
         },
