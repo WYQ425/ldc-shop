@@ -15,9 +15,11 @@ import { toast } from "sonner"
 import { useEffect } from "react"
 import { checkOrderStatus } from "@/actions/order"
 import { useRouter } from "next/navigation"
+import { isPaymentOrder } from "@/lib/payment"
 
 interface Order {
     orderId: string
+    productId?: string | null
     productName: string
     amount: string
     status: string
@@ -37,6 +39,7 @@ export function OrderContent({ order, canViewKey, isOwner, refundRequest }: Orde
     const { t } = useI18n()
     const [reason, setReason] = useState("")
     const [submitting, setSubmitting] = useState(false)
+    const isPayment = isPaymentOrder(order.productId)
 
     const getStatusBadgeVariant = (status: string) => {
         switch (status) {
@@ -54,7 +57,7 @@ export function OrderContent({ order, canViewKey, isOwner, refundRequest }: Orde
 
     const getStatusMessage = (status: string) => {
         switch (status) {
-            case 'paid': return t('order.stockDepleted')
+            case 'paid': return isPayment ? t('payment.paidMessage') : t('order.stockDepleted')
             case 'cancelled': return t('order.cancelledMessage')
             case 'refunded': return t('order.orderRefunded')
             default: return t('order.waitingPayment')
@@ -134,11 +137,17 @@ export function OrderContent({ order, canViewKey, isOwner, refundRequest }: Orde
                         {/* Product Info */}
                         <div className="flex justify-between items-center p-4 bg-gradient-to-r from-muted/40 to-muted/20 rounded-xl border border-border/30">
                             <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('order.product')}</p>
-                                <p className="font-semibold">{order.productName}</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                    {isPayment ? t('payment.itemLabel') : t('order.product')}
+                                </p>
+                                <p className="font-semibold">{isPayment ? t('payment.title') : order.productName}</p>
                             </div>
                             <div className="h-12 w-12 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl flex items-center justify-center border border-primary/20">
-                                <Package className="h-5 w-5 text-primary" />
+                                {isPayment ? (
+                                    <CreditCard className="h-5 w-5 text-primary" />
+                                ) : (
+                                    <Package className="h-5 w-5 text-primary" />
+                                )}
                             </div>
                         </div>
 
@@ -176,7 +185,7 @@ export function OrderContent({ order, canViewKey, isOwner, refundRequest }: Orde
                     <Separator className="bg-border/50" />
 
                     {/* Content Display */}
-                    {order.status === 'delivered' ? (
+                    {order.status === 'delivered' && !isPayment ? (
                         canViewKey ? (
                             <div className="space-y-4">
                                 <h3 className="font-semibold flex items-center gap-2">
@@ -215,12 +224,14 @@ export function OrderContent({ order, canViewKey, isOwner, refundRequest }: Orde
                         )
                     ) : (
                         <div className={`flex items-center justify-between gap-3 p-4 rounded-xl border ${order.status === 'paid'
-                            ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+                            ? (isPayment
+                                ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20'
+                                : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20')
                             : 'bg-muted/20 text-muted-foreground border-border/30'
                             }`}>
                             <div className="flex items-center gap-3">
                                 {order.status === 'paid' ? (
-                                    <AlertCircle className="h-5 w-5" />
+                                    isPayment ? <CheckCircle2 className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />
                                 ) : (
                                     <Clock className="h-5 w-5" />
                                 )}

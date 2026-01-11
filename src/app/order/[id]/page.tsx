@@ -51,6 +51,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
         <OrderContent
             order={{
                 orderId: order.orderId,
+                productId: order.productId,
                 productName: order.productName,
                 amount: order.amount,
                 status: order.status || 'pending',
