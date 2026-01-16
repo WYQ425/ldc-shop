@@ -203,9 +203,14 @@
                 "disabled": "Disabled"
             },
             "noIndex": {
-                "title": "No Index",
+                "title": "Block Search Engines",
                 "enabled": "Blocked",
                 "disabled": "Allowed"
+            },
+            "footer": {
+                "title": "Custom Footer",
+                "placeholder": "e.g. Contact: xxx@example.com",
+                "hint": "Displayed at the bottom of the site. Leave empty to use default."
             }
         },
         "export": {

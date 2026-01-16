@@ -203,9 +203,14 @@
                 "disabled": "已禁用"
             },
             "noIndex": {
-                "title": "禁止收录",
+                "title": "禁止搜索引擎收录",
                 "enabled": "已禁止",
                 "disabled": "允许收录"
+            },
+            "footer": {
+                "title": "自定义页脚",
+                "placeholder": "例如：联系客服：xxx@example.com",
+                "hint": "显示在网站底部，留空使用默认页脚。"
             }
         },
         "export": {

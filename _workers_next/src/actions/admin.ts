@@ -311,6 +311,19 @@ export async function saveNoIndex(enabled: boolean) {
     revalidatePath('/')
 }
 
+export async function saveShopFooter(footer: string) {
+    await checkAdmin()
+    
+    const text = footer.trim()
+    if (text.length > 500) {
+        throw new Error("Footer text is too long")
+    }
+    
+    await setSetting('shop_footer', text)
+    revalidatePath('/admin/settings')
+    revalidatePath('/')
+}
+
 async function ensureCategoriesTable() {
     await db.run(sql`
         CREATE TABLE IF NOT EXISTS categories (

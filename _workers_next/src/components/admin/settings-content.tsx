@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TrendingUp, ShoppingCart, CreditCard, Package, Users } from "lucide-react"
-import { saveShopName, saveShopDescription, saveShopLogo, saveLowStockThreshold, saveCheckinReward, saveCheckinEnabled, saveNoIndex } from "@/actions/admin"
+import { saveShopName, saveShopDescription, saveShopLogo, saveShopFooter, saveLowStockThreshold, saveCheckinReward, saveCheckinEnabled, saveNoIndex } from "@/actions/admin"
 import { toast } from "sonner"
 
 interface Stats {
@@ -23,6 +23,7 @@ interface AdminSettingsContentProps {
     shopName: string | null
     shopDescription: string | null
     shopLogo: string | null
+    shopFooter: string | null
     visitorCount: number
     lowStockThreshold: number
     checkinReward: number
@@ -30,7 +31,7 @@ interface AdminSettingsContentProps {
     noIndexEnabled: boolean
 }
 
-export function AdminSettingsContent({ stats, shopName, shopDescription, shopLogo, visitorCount, lowStockThreshold, checkinReward, checkinEnabled, noIndexEnabled }: AdminSettingsContentProps) {
+export function AdminSettingsContent({ stats, shopName, shopDescription, shopLogo, shopFooter, visitorCount, lowStockThreshold, checkinReward, checkinEnabled, noIndexEnabled }: AdminSettingsContentProps) {
     const { t } = useI18n()
 
     // State
@@ -40,6 +41,8 @@ export function AdminSettingsContent({ stats, shopName, shopDescription, shopLog
     const [savingShopDesc, setSavingShopDesc] = useState(false)
     const [shopLogoValue, setShopLogoValue] = useState(shopLogo || '')
     const [savingShopLogo, setSavingShopLogo] = useState(false)
+    const [shopFooterValue, setShopFooterValue] = useState(shopFooter || '')
+    const [savingShopFooter, setSavingShopFooter] = useState(false)
     const [thresholdValue, setThresholdValue] = useState(String(lowStockThreshold || 5))
     const [savingThreshold, setSavingThreshold] = useState(false)
     const [rewardValue, setRewardValue] = useState(String(checkinReward || 10))
@@ -137,6 +140,18 @@ export function AdminSettingsContent({ stats, shopName, shopDescription, shopLog
             toast.error(e.message)
         } finally {
             setSavingNoIndex(false)
+        }
+    }
+
+    const handleSaveShopFooter = async () => {
+        setSavingShopFooter(true)
+        try {
+            await saveShopFooter(shopFooterValue)
+            toast.success(t('common.success'))
+        } catch (e: any) {
+            toast.error(e.message)
+        } finally {
+            setSavingShopFooter(false)
         }
     }
 
@@ -254,6 +269,29 @@ export function AdminSettingsContent({ stats, shopName, shopDescription, shopLog
                             </div>
                         </div>
                     )}
+                </CardContent>
+            </Card>
+
+            {/* Custom Footer */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>{t('admin.settings.footer.title')}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid gap-2 md:max-w-xl">
+                        <div className="flex gap-2">
+                            <Input
+                                id="shop-footer"
+                                value={shopFooterValue}
+                                onChange={(e) => setShopFooterValue(e.target.value)}
+                                placeholder={t('admin.settings.footer.placeholder')}
+                            />
+                            <Button variant="outline" onClick={handleSaveShopFooter} disabled={savingShopFooter}>
+                                {savingShopFooter ? t('common.processing') : t('common.save')}
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{t('admin.settings.footer.hint')}</p>
+                    </div>
                 </CardContent>
             </Card>
 
