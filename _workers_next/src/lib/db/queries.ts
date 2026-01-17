@@ -213,7 +213,7 @@ export async function getProducts() {
             purchaseLimit: products.purchaseLimit,
             stock: sql<number>`CASE WHEN ${products.isShared} = 1 THEN (CASE WHEN count(case when ${cards.id} IS NOT NULL AND COALESCE(${cards.isUsed}, 0) = 0 then 1 end) > 0 THEN 999999 ELSE 0 END) ELSE count(case when ${cards.id} IS NOT NULL AND COALESCE(${cards.isUsed}, 0) = 0 AND (${cards.reservedAt} IS NULL OR ${cards.reservedAt} < ${Math.floor((Date.now() - 5 * 60 * 1000) / 1000)}) then 1 end) END`,
             locked: sql<number>`count(case when ${cards.id} IS NOT NULL AND COALESCE(${cards.isUsed}, 0) = 0 AND (${cards.reservedAt} >= ${Math.floor((Date.now() - 5 * 60 * 1000) / 1000)}) then 1 end)`,
-            sold: sql<number>`count(case when COALESCE(${cards.isUsed}, 0) = 1 then 1 end)`
+            sold: sql<number>`(SELECT COALESCE(SUM(${orders.quantity}), 0) FROM ${orders} WHERE ${orders.productId} = ${products.id} AND ${orders.status} IN ('paid', 'delivered'))`
         })
             .from(products)
             .leftJoin(cards, eq(products.id, cards.productId))
@@ -241,7 +241,7 @@ export async function getActiveProducts() {
             purchaseLimit: products.purchaseLimit,
             stock: sql<number>`CASE WHEN ${products.isShared} = 1 THEN (CASE WHEN count(case when ${cards.id} IS NOT NULL AND COALESCE(${cards.isUsed}, 0) = 0 then 1 end) > 0 THEN 999999 ELSE 0 END) ELSE count(case when ${cards.id} IS NOT NULL AND COALESCE(${cards.isUsed}, 0) = 0 AND (${cards.reservedAt} IS NULL OR ${cards.reservedAt} < ${Math.floor((Date.now() - 5 * 60 * 1000) / 1000)}) then 1 end) END`,
             locked: sql<number>`count(case when ${cards.id} IS NOT NULL AND COALESCE(${cards.isUsed}, 0) = 0 AND (${cards.reservedAt} >= ${Math.floor((Date.now() - 5 * 60 * 1000) / 1000)}) then 1 end)`,
-            sold: sql<number>`count(case when COALESCE(${cards.isUsed}, 0) = 1 then 1 end)`
+            sold: sql<number>`(SELECT COALESCE(SUM(${orders.quantity}), 0) FROM ${orders} WHERE ${orders.productId} = ${products.id} AND ${orders.status} IN ('paid', 'delivered'))`
         })
             .from(products)
             .leftJoin(cards, eq(products.id, cards.productId))
@@ -434,7 +434,7 @@ export async function searchActiveProducts(params: {
             orderByParts.push(desc(sql<number>`count(case when ${cards.isUsed} = 0 then 1 end)`))
             break
         case 'soldDesc':
-            orderByParts.push(desc(sql<number>`count(case when ${cards.isUsed} = 1 then 1 end)`))
+            orderByParts.push(desc(sql<number>`(SELECT COALESCE(SUM(${orders.quantity}), 0) FROM ${orders} WHERE ${orders.productId} = ${products.id} AND ${orders.status} IN ('paid', 'delivered'))`))
             break
         case 'hot':
             orderByParts.push(desc(sql<number>`case when ${products.isHot} = 1 then 1 else 0 end`))
@@ -458,7 +458,7 @@ export async function searchActiveProducts(params: {
             purchaseLimit: products.purchaseLimit,
             stock: sql<number>`count(case when ${cards.id} IS NOT NULL AND COALESCE(${cards.isUsed}, 0) = 0 AND (${cards.reservedAt} IS NULL OR ${cards.reservedAt} < ${Math.floor((Date.now() - 5 * 60 * 1000) / 1000)}) then 1 end)`,
             locked: sql<number>`count(case when ${cards.id} IS NOT NULL AND COALESCE(${cards.isUsed}, 0) = 0 AND (${cards.reservedAt} >= ${Math.floor((Date.now() - 5 * 60 * 1000) / 1000)}) then 1 end)`,
-            sold: sql<number>`count(case when COALESCE(${cards.isUsed}, 0) = 1 then 1 end)`
+            sold: sql<number>`(SELECT COALESCE(SUM(${orders.quantity}), 0) FROM ${orders} WHERE ${orders.productId} = ${products.id} AND ${orders.status} IN ('paid', 'delivered'))`
         })
             .from(products)
             .leftJoin(cards, eq(products.id, cards.productId))
