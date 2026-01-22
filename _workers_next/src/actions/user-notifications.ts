@@ -62,7 +62,7 @@ export async function markAllNotificationsRead() {
         await ensureBroadcastTables()
         const now = Date.now()
         await db.run(sql`
-            INSERT INTO broadcast_reads (message_id, user_id, created_at)
+            INSERT OR IGNORE INTO broadcast_reads (message_id, user_id, created_at)
             SELECT m.id, ${userId}, ${now}
             FROM broadcast_messages m
             WHERE NOT EXISTS (
@@ -237,7 +237,7 @@ export async function clearMyNotifications() {
         await ensureBroadcastTables()
         const now = Date.now()
         await db.run(sql`
-            INSERT INTO broadcast_reads (message_id, user_id, created_at)
+            INSERT OR IGNORE INTO broadcast_reads (message_id, user_id, created_at)
             SELECT m.id, ${userId}, ${now}
             FROM broadcast_messages m
             WHERE NOT EXISTS (
