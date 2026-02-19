@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { products, cards, orders, loginUsers } from "@/lib/db/schema"
-import { cancelExpiredOrders, cleanupExpiredCardsIfNeeded, recalcProductAggregates, getLoginUserEmail, createUserNotification } from "@/lib/db/queries"
+import { cancelExpiredOrders, cleanupExpiredCardsIfNeeded, recalcProductAggregates, createUserNotification } from "@/lib/db/queries"
 import { generateOrderId, generateSign } from "@/lib/crypto"
 import { eq, sql, and, or, isNull, lt, gt } from "drizzle-orm"
 import { cookies } from "next/headers"
@@ -14,6 +14,12 @@ import { sendOrderEmail } from "@/lib/email"
 import { INFINITE_STOCK, RESERVATION_TTL_MS } from "@/lib/constants"
 
 const MAX_ORDER_QUANTITY = 10000
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function isValidEmail(value: string | null | undefined) {
+    if (!value) return false
+    return EMAIL_REGEX.test(value.trim())
+}
 
 export async function createOrder(productId: string, quantity: number = 1, email?: string, usePoints: boolean = false) {
     const session = await auth()
@@ -57,18 +63,6 @@ export async function createOrder(productId: string, quantity: number = 1, email
         }
     }
 
-    try {
-        await cleanupExpiredCardsIfNeeded(undefined, productId)
-    } catch {
-        // Best effort cleanup
-    }
-
-    try {
-        await cancelExpiredOrders({ productId })
-    } catch {
-        // Best effort cleanup
-    }
-
     // Points Calculation
     let pointsToUse = 0
     let finalAmount = Number(product.price) * quantity
@@ -88,8 +82,9 @@ export async function createOrder(productId: string, quantity: number = 1, email
     }
 
     const isZeroPrice = finalAmount <= 0
-    const profileEmail = (!email && user?.id) ? await getLoginUserEmail(user.id) : null
-    const resolvedEmail = email || profileEmail || user?.email || null
+    const contactInfo = (email || '').trim()
+    const resolvedContactInfo = contactInfo || null
+    const resolvedDeliveryEmail = isValidEmail(contactInfo) ? contactInfo : null
 
     // 2. Check Stock
     const getAvailableStock = async () => {
@@ -116,14 +111,25 @@ export async function createOrder(productId: string, quantity: number = 1, email
         return result[0]?.count || 0
     }
 
+    const runStockCleanupFallback = async () => {
+        await Promise.allSettled([
+            cleanupExpiredCardsIfNeeded(0, productId),
+            cancelExpiredOrders({ productId }),
+        ])
+    }
+
     let stock = await getAvailableStock()
+    if (stock < quantity) {
+        await runStockCleanupFallback()
+        stock = await getAvailableStock()
+    }
 
     if (stock < quantity) return { success: false, error: 'buy.outOfStock' }
 
     // 3. Check Purchase Limit
     if (product.purchaseLimit && product.purchaseLimit > 0) {
         const currentUserId = user?.id
-        const currentUserEmail = email || user?.email
+        const currentUserEmail = resolvedDeliveryEmail || user?.email || null
 
         if (currentUserId || currentUserEmail) {
             const conditions = [eq(orders.productId, productId)]
@@ -302,10 +308,10 @@ export async function createOrder(productId: string, quantity: number = 1, email
 
         const joinedKeys = reservedCards.map(c => c.key).join('\n')
 
-        await createOrderRecord(reservedCards, joinedKeys, isZeroPrice, pointsToUse, finalAmount, user, session?.user?.name, email, product, orderId, quantity)
+        await createOrderRecord(reservedCards, joinedKeys, isZeroPrice, pointsToUse, finalAmount, user, session?.user?.name, resolvedContactInfo, product, orderId, quantity)
     };
 
-    const createOrderRecord = async (reservedCards: any[], joinedKeys: string, isZeroPrice: boolean, pointsToUse: number, finalAmount: number, user: any, username: any, email: any, product: any, orderId: string, qty: number) => {
+    const createOrderRecord = async (reservedCards: any[], joinedKeys: string, isZeroPrice: boolean, pointsToUse: number, finalAmount: number, user: any, username: any, contactInfo: any, product: any, orderId: string, qty: number) => {
         let pointsDeducted = false
         let orderInserted = false
 
@@ -349,7 +355,7 @@ export async function createOrder(productId: string, quantity: number = 1, email
                     productId: product.id,
                     productName: product.name,
                     amount: finalAmount.toString(),
-                    email: resolvedEmail,
+                    email: resolvedContactInfo,
                     userId: user?.id || null,
                     username: username || user?.username || null,
                     status: 'delivered',
@@ -393,7 +399,7 @@ export async function createOrder(productId: string, quantity: number = 1, email
                             productName: product.name,
                             amount: pointsToUse.toString() + ' (积分)',
                             username: username || user?.username,
-                            email: email || user?.email,
+                            email: contactInfo || user?.email,
                             tradeNo: 'POINTS_REDEMPTION'
                         });
                         console.log('[Checkout] Points payment notification sent successfully');
@@ -402,7 +408,7 @@ export async function createOrder(productId: string, quantity: number = 1, email
                     }
 
                     // Send email with card keys
-                    const orderEmail = resolvedEmail;
+                    const orderEmail = resolvedDeliveryEmail;
                     if (orderEmail) {
                         await sendOrderEmail({
                             to: orderEmail,
@@ -419,7 +425,7 @@ export async function createOrder(productId: string, quantity: number = 1, email
                     productId: product.id,
                     productName: product.name,
                     amount: finalAmount.toString(),
-                    email: resolvedEmail,
+                    email: resolvedContactInfo,
                     userId: user?.id || null,
                     username: username || user?.username || null,
                     status: 'pending',
