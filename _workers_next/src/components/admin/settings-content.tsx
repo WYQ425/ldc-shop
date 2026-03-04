@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { TrendingUp, ShoppingCart, CreditCard, Package, Users } from "lucide-react"
 import { saveShopName, saveShopDescription, saveShopLogo, saveShopFooter, saveThemeColor, saveLowStockThreshold, saveCheckinReward, saveCheckinEnabled, saveWishlistEnabled, saveNoIndex, saveRefundReclaimCards, saveRegistryHideNav } from "@/actions/admin"
-import { checkForUpdates } from "@/actions/update-check"
-import { joinRegistry } from "@/actions/registry"
+import { joinRegistry, leaveRegistry } from "@/actions/registry"
+import { checkForUpdatesClient, type ClientUpdateCheckResult } from "@/lib/update-check-client"
 import { toast } from "sonner"
 
 interface Stats {
@@ -38,15 +38,10 @@ interface AdminSettingsContentProps {
     registryHideNav: boolean
     registryOptIn: boolean
     registryEnabled: boolean
+    currentVersion: string
 }
 
-interface UpdateInfo {
-    hasUpdate: boolean
-    currentVersion: string
-    latestVersion: string | null
-    releaseUrl: string | null
-    error?: string
-}
+type UpdateInfo = ClientUpdateCheckResult
 
 const THEME_COLORS = [
     { value: 'black', hue: 0, chroma: 0, preview: 'oklch(0.18 0 0)' },
@@ -64,7 +59,7 @@ const THEME_COLORS = [
     { value: 'pink', hue: 330 },
 ]
 
-export function AdminSettingsContent({ stats, shopName, shopDescription, shopLogo, shopFooter, themeColor, visitorCount, lowStockThreshold, checkinReward, checkinEnabled, wishlistEnabled, noIndexEnabled, refundReclaimCards, registryHideNav, registryOptIn, registryEnabled }: AdminSettingsContentProps) {
+export function AdminSettingsContent({ stats, shopName, shopDescription, shopLogo, shopFooter, themeColor, visitorCount, lowStockThreshold, checkinReward, checkinEnabled, wishlistEnabled, noIndexEnabled, refundReclaimCards, registryHideNav, registryOptIn, registryEnabled, currentVersion }: AdminSettingsContentProps) {
     const { t } = useI18n()
 
     // State
@@ -93,6 +88,7 @@ export function AdminSettingsContent({ stats, shopName, shopDescription, shopLog
     const [checkingUpdate, setCheckingUpdate] = useState(false)
     const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
     const [submittingRegistry, setSubmittingRegistry] = useState(false)
+    const [leavingRegistry, setLeavingRegistry] = useState(false)
     const [registryJoined, setRegistryJoined] = useState(registryOptIn)
     const [hideRegistryNav, setHideRegistryNav] = useState(registryHideNav)
     const [savingRegistryNav, setSavingRegistryNav] = useState(false)
@@ -257,7 +253,7 @@ export function AdminSettingsContent({ stats, shopName, shopDescription, shopLog
     const handleCheckUpdate = async () => {
         setCheckingUpdate(true)
         try {
-            const result = await checkForUpdates()
+            const result = await checkForUpdatesClient(currentVersion)
             setUpdateInfo(result)
             if (result.error) {
                 toast.error(t('update.checkFailed'))
@@ -272,7 +268,7 @@ export function AdminSettingsContent({ stats, shopName, shopDescription, shopLog
     }
 
     const handleRegistrySubmit = async () => {
-        if (submittingRegistry) return
+        if (submittingRegistry || leavingRegistry) return
         setSubmittingRegistry(true)
         try {
             const result = await joinRegistry(window.location.origin)
@@ -281,10 +277,29 @@ export function AdminSettingsContent({ stats, shopName, shopDescription, shopLog
             }
             toast.success(t('registry.submitSuccess'))
             setRegistryJoined(true)
+            setHideRegistryNav(false)
         } catch {
             toast.error(t('registry.submitFailed'))
         } finally {
             setSubmittingRegistry(false)
+        }
+    }
+
+    const handleRegistryLeave = async () => {
+        if (submittingRegistry || leavingRegistry) return
+        setLeavingRegistry(true)
+        try {
+            const result = await leaveRegistry()
+            if (!result.ok) {
+                throw new Error(result.error || "leave_failed")
+            }
+            toast.success(t('registry.leaveSuccess'))
+            setRegistryJoined(false)
+            setHideRegistryNav(true)
+        } catch {
+            toast.error(t('registry.leaveFailed'))
+        } finally {
+            setLeavingRegistry(false)
         }
     }
 
@@ -566,9 +581,14 @@ export function AdminSettingsContent({ stats, shopName, shopDescription, shopLog
                     <CardContent className="space-y-3">
                         <p className="text-sm text-muted-foreground">{t('registry.description')}</p>
                         <div className="flex flex-wrap items-center gap-3">
-                            <Button onClick={handleRegistrySubmit} disabled={submittingRegistry}>
+                            <Button onClick={handleRegistrySubmit} disabled={submittingRegistry || leavingRegistry}>
                                 {registryJoined ? t('registry.resubmit') : t('registry.joinNow')}
                             </Button>
+                            {registryJoined && (
+                                <Button variant="destructive" onClick={handleRegistryLeave} disabled={submittingRegistry || leavingRegistry}>
+                                    {t('registry.leaveNow')}
+                                </Button>
+                            )}
                             <span className={registryJoined ? "text-green-600 text-sm" : "text-muted-foreground text-sm"}>
                                 {registryJoined ? t('registry.statusJoined') : t('registry.statusNotJoined')}
                             </span>

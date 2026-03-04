@@ -192,5 +192,76 @@
 | `ADMIN_USERS` | 管理员的 Linux DO 用户名 (name)，逗号分隔。例如: `zhangsan,lisi` |
 | `NEXT_PUBLIC_APP_URL` | 部署后的完整 URL (用于回调，必须 Text) |
 
+## 🔌 卡密自动补货 API 对接
+
+在管理后台的 `卡密管理` 页面可为单个商品配置“卡密 API 自动补货”。
+
+### 触发时机
+
+- 启用时：会立即尝试拉取 1 条卡密。
+- 手动拉取：点击“手动拉取 1 条”时拉取 1 条。
+- 自动补货：订单成功发货后自动补 1 条（无需 Cron）。
+
+### 请求规则
+
+- 请求方法：`GET`
+- 请求 URL：使用你在后台填写的 API URL，**原样请求**
+- 不会自动追加/替换 `productId` 参数
+- 可选请求头：
+  - `Authorization: Bearer <token>`（仅在你配置了 Token 时发送）
+- 固定请求头：
+  - `Accept: application/json, text/plain;q=0.9, */*;q=0.8`
+
+### 响应要求
+
+接口每次请求返回 1 条可发货的卡密即可，支持以下格式：
+
+1. 纯文本（`text/plain`）
+
+```text
+ABC-DEF-123
+```
+
+2. JSON 直接字段（任一字段名）
+
+```json
+{ "cardKey": "ABC-DEF-123" }
+```
+
+```json
+{ "card": "ABC-DEF-123" }
+```
+
+```json
+{ "key": "ABC-DEF-123" }
+```
+
+```json
+{ "code": "ABC-DEF-123" }
+```
+
+3. JSON 嵌套字段（支持 `data` / `result` / `item` 递归提取）
+
+```json
+{ "data": { "cardKey": "ABC-DEF-123" } }
+```
+
+```json
+{ "result": { "item": { "code": "ABC-DEF-123" } } }
+```
+
+4. JSON 数组（会从前到后提取第一条可用卡密）
+
+```json
+[{ "cardKey": "ABC-DEF-123" }, { "cardKey": "XYZ-999-888" }]
+```
+
+### 返回码建议
+
+- 成功：返回 `200`
+- 失败（如无库存、鉴权失败、参数错误）：返回 `4xx/5xx`
+
+建议你的 API 避免重复返回同一条卡密；若返回重复卡密，系统会因去重约束而拒绝入库。
+
 ## 📄 许可证
 MIT

@@ -2,31 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { useI18n } from '@/lib/i18n/context'
-import { checkForUpdates } from '@/actions/update-check'
+import { checkForUpdatesClient, type ClientUpdateCheckResult } from '@/lib/update-check-client'
 import { AlertTriangle, ExternalLink, X } from 'lucide-react'
 
-interface UpdateInfo {
-    hasUpdate: boolean
-    currentVersion: string
-    latestVersion: string | null
-    releaseUrl: string | null
-}
-
-export function UpdateNotification() {
+export function UpdateNotification({ currentVersion }: { currentVersion: string }) {
     const { t } = useI18n()
-    const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+    const [updateInfo, setUpdateInfo] = useState<ClientUpdateCheckResult | null>(null)
     const [dismissed, setDismissed] = useState(false)
 
     useEffect(() => {
         // Check if user has dismissed this version's notification
         const dismissedVersion = localStorage.getItem('dismissed_update_version')
 
-        checkForUpdates().then((result) => {
+        checkForUpdatesClient(currentVersion).then((result) => {
             if (result.hasUpdate && result.latestVersion !== dismissedVersion) {
                 setUpdateInfo(result)
             }
         }).catch(console.error)
-    }, [])
+    }, [currentVersion])
 
     if (!updateInfo || !updateInfo.hasUpdate || dismissed) {
         return null
@@ -55,7 +48,7 @@ export function UpdateNotification() {
             </div>
             <div className="flex items-center gap-3">
                 <a
-                    href="https://github.com"
+                    href={updateInfo.releaseUrl || "https://github.com/chatgptuk/ldc-shop"}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm underline underline-offset-2 hover:no-underline flex items-center gap-1"

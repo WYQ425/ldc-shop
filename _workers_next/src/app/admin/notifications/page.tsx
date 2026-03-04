@@ -2,9 +2,11 @@ import { checkAdmin } from "@/actions/admin"
 import { NotificationsContent } from "@/components/admin/notifications-content"
 import { getNotificationSettings } from "@/lib/notifications"
 import { getEmailSettings } from "@/lib/email"
+import { unstable_noStore } from "next/cache"
 
 export default async function NotificationsPage() {
     await checkAdmin()
+    unstable_noStore()
     const [settings, emailSettings] = await Promise.all([
         getNotificationSettings(),
         getEmailSettings()
@@ -15,6 +17,10 @@ export default async function NotificationsPage() {
             telegramBotToken: settings.token || '',
             telegramChatId: settings.chatId || '',
             telegramLanguage: settings.language || 'zh',
+            telegramEnabled: settings.telegramEnabled || false,
+            barkEnabled: settings.barkEnabled || false,
+            barkServerUrl: settings.barkServerUrl || 'https://api.day.app',
+            barkDeviceKey: settings.barkDeviceKey || '',
             resendApiKey: emailSettings.apiKey || '',
             resendFromEmail: emailSettings.fromEmail || '',
             resendFromName: emailSettings.fromName || '',

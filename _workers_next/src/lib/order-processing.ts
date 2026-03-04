@@ -5,6 +5,7 @@ import { isPaymentOrder } from "@/lib/payment";
 import { notifyAdminPaymentSuccess } from "@/lib/notifications";
 import { sendOrderEmail } from "@/lib/email";
 import { recalcProductAggregates, createUserNotification } from "@/lib/db/queries";
+import { pullOneCardFromApi } from "@/lib/card-api";
 import { RESERVATION_TTL_MS } from "@/lib/constants";
 import { updateTag } from "next/cache";
 import { after } from "next/server";
@@ -62,6 +63,34 @@ export async function processOrderFulfillment(orderId: string, paidAmount: numbe
                 href: `/order/${orderId}`
             }
         })
+    }
+
+    const autoReplenishByApi = async (productId: string, reason: string) => {
+        try {
+            const result = await pullOneCardFromApi(productId)
+            if (result.ok) {
+                try {
+                    await recalcProductAggregates(productId)
+                } catch {
+                    // best effort
+                }
+                try {
+                    updateTag('home:products')
+                    updateTag('home:product-categories')
+                } catch {
+                    // best effort
+                }
+                console.log(`[Card API] Auto replenished for product ${productId}, reason=${reason}`)
+                return
+            }
+            if (result.skipped) {
+                console.info(`[Card API] Auto replenish skipped for product ${productId}, reason=${reason}, detail=${result.error || "skipped"}`)
+                return
+            }
+            console.warn(`[Card API] Auto replenish failed for product ${productId}: ${result.error || "unknown_error"}`)
+        } catch (error: any) {
+            console.warn(`[Card API] Auto replenish exception for product ${productId}: ${error?.message || "unknown_error"}`)
+        }
     }
 
     if (isPaymentOrder(order.productId)) {
@@ -313,6 +342,7 @@ export async function processOrderFulfillment(orderId: string, paidAmount: numbe
                     }).catch(err => console.error('[Email] Send failed:', err));
                 }
             })
+            await autoReplenishByApi(order.productId, `order:${orderId}`)
         } else {
             // Paid but no stock
             await db.update(orders)

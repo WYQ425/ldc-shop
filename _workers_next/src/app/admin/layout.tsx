@@ -5,6 +5,7 @@ import { UpdateNotification } from "@/components/admin/update-notification"
 import { getSetting, setSetting } from "@/lib/db/queries"
 import { RegistryPrompt } from "@/components/admin/registry-prompt"
 import { isRegistryEnabled } from "@/lib/registry"
+import { APP_VERSION } from "@/lib/version"
 import { Suspense } from "react"
 
 async function AdminLayoutContent({ children }: { children: React.ReactNode }) {
@@ -50,7 +51,7 @@ async function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex min-h-screen flex-col">
-            <UpdateNotification />
+            <UpdateNotification currentVersion={APP_VERSION} />
             <RegistryPrompt shouldPrompt={shouldPrompt} registryEnabled={registryEnabled} />
             <div className="flex flex-1 flex-col md:flex-row">
                 <AdminSidebar username={user.username} />

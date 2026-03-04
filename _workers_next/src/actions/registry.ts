@@ -10,6 +10,13 @@ interface RegistryResult {
     error?: string
 }
 
+function revalidateRegistryPages() {
+    revalidatePath("/")
+    revalidatePath("/admin/settings")
+    revalidatePath("/nav")
+    revalidatePath("/navi")
+}
+
 export async function dismissRegistryPrompt(): Promise<RegistryResult> {
     await checkAdmin()
     await setSetting("registry_prompted", "true")
@@ -68,9 +75,65 @@ export async function joinRegistry(origin: string): Promise<RegistryResult> {
     await setSetting("registry_prompted", "true")
     await setSetting("registry_last_submit_at", String(Date.now()))
 
-    revalidatePath("/nav")
-    revalidatePath("/navi")
+    revalidateRegistryPages()
 
+    return { ok: true }
+}
+
+export async function leaveRegistry(): Promise<RegistryResult> {
+    await checkAdmin()
+
+    const baseUrl = getRegistryBaseUrl()
+    const originRaw = (await getSetting("registry_origin")) || ""
+    const origin = originRaw.trim()
+
+    if (baseUrl && origin) {
+        let normalized: string
+        try {
+            normalized = normalizeOrigin(origin)
+        } catch (error: any) {
+            return { ok: false, error: error?.message || "invalid_origin" }
+        }
+
+        const challengeRes = await fetch(`${baseUrl}/challenge`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ url: normalized }),
+        })
+
+        if (!challengeRes.ok) {
+            return { ok: false, error: `challenge_failed_${challengeRes.status}` }
+        }
+
+        const challengeData = await challengeRes.json()
+        const token = (challengeData?.token || "").toString()
+        if (!token) {
+            return { ok: false, error: "challenge_token_missing" }
+        }
+
+        await setSetting("registry_challenge_token", token)
+
+        const removeRes = await fetch(`${baseUrl}/remove`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ url: normalized }),
+        })
+
+        if (!removeRes.ok) {
+            const errorText = await removeRes.text()
+            return { ok: false, error: `remove_failed_${removeRes.status}:${errorText}` }
+        }
+    }
+
+    await Promise.all([
+        setSetting("registry_opt_in", "false"),
+        setSetting("registry_hide_nav", "true"),
+        setSetting("registry_origin", ""),
+        setSetting("registry_challenge_token", ""),
+        setSetting("registry_last_submit_at", ""),
+        setSetting("registry_prompted", "true"),
+    ])
+    revalidateRegistryPages()
     return { ok: true }
 }
 

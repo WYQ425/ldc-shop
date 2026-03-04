@@ -162,6 +162,77 @@ Get **Client ID** and **Client Secret**, and fill them into environment variable
 *   **ADMIN_USERS**: Admin usernames, comma separated (e.g., `chatgpt,admin`) (**Secret recommended**).
 *   **NEXT_PUBLIC_APP_URL**: Your full app URL (e.g., `https://store.chatgpt.org.uk`). **Must be Text, not Secret**.
 
+## 🔌 Card Auto-Replenish API Integration
+
+You can configure Card API auto-replenish per product in the admin `Card Inventory` page.
+
+### Trigger Timing
+
+- On enable: the system immediately tries to pull 1 card key.
+- Manual pull: when clicking `Pull 1 Card`, it pulls 1 card key.
+- Auto-replenish: after each successful delivery, it auto-pulls 1 card key (no cron required).
+
+### Request Rules
+
+- Method: `GET`
+- URL: uses the exact API URL you configured in admin, as-is
+- No automatic `productId` append/replace
+- Optional header:
+  - `Authorization: Bearer <token>` (sent only when token is configured)
+- Fixed header:
+  - `Accept: application/json, text/plain;q=0.9, */*;q=0.8`
+
+### Response Requirements
+
+Each request should return one deliverable card key. Supported response formats:
+
+1. Plain text (`text/plain`)
+
+```text
+ABC-DEF-123
+```
+
+2. JSON direct fields (any one of them)
+
+```json
+{ "cardKey": "ABC-DEF-123" }
+```
+
+```json
+{ "card": "ABC-DEF-123" }
+```
+
+```json
+{ "key": "ABC-DEF-123" }
+```
+
+```json
+{ "code": "ABC-DEF-123" }
+```
+
+3. JSON nested fields (recursive extraction from `data` / `result` / `item`)
+
+```json
+{ "data": { "cardKey": "ABC-DEF-123" } }
+```
+
+```json
+{ "result": { "item": { "code": "ABC-DEF-123" } } }
+```
+
+4. JSON array (the first valid card key will be used)
+
+```json
+[{ "cardKey": "ABC-DEF-123" }, { "cardKey": "XYZ-999-888" }]
+```
+
+### Recommended Status Codes
+
+- Success: return `200`
+- Failure (out of stock/auth invalid/invalid params): return `4xx/5xx`
+
+Your API should avoid returning duplicate card keys. Duplicate keys will be rejected by the store's uniqueness constraints.
+
 ## 🛠️ Local Development
 
 1.  Clone the repository.

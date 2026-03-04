@@ -3,6 +3,7 @@ import { isRegistryEnabled } from "@/lib/registry"
 import { AdminSettingsContent } from "@/components/admin/settings-content"
 import { unstable_noStore } from "next/cache"
 import { cookies } from "next/headers"
+import { APP_VERSION } from "@/lib/version"
 
 export default async function AdminSettingsPage() {
     const cookieStore = await cookies()
@@ -48,6 +49,7 @@ export default async function AdminSettingsPage() {
             refundReclaimCards={refundReclaimCards}
             registryHideNav={registryHideNav}
             registryEnabled={isRegistryEnabled()}
+            currentVersion={APP_VERSION}
         />
     )
 }

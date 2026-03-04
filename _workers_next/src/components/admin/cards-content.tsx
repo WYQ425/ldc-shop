@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { addCards, deleteCard, deleteCards } from "@/actions/admin"
+import { addCards, deleteCard, deleteCards, pullCardFromApi, saveCardsApiConfig, setCardsApiEnabled } from "@/actions/admin"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useRef, useState } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -24,9 +24,14 @@ interface CardsContentProps {
     productId: string
     productName: string
     unusedCards: CardData[]
+    apiConfig: {
+        enabled: boolean
+        url: string
+        token: string
+    }
 }
 
-export function CardsContent({ productId, productName, unusedCards }: CardsContentProps) {
+export function CardsContent({ productId, productName, unusedCards, apiConfig }: CardsContentProps) {
     const { t } = useI18n()
     const router = useRouter()
     const [selectedIds, setSelectedIds] = useState<number[]>([])
@@ -35,6 +40,12 @@ export function CardsContent({ productId, productName, unusedCards }: CardsConte
     const [deletingId, setDeletingId] = useState<number | null>(null)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [pendingCount, setPendingCount] = useState(0)
+    const [apiEnabled, setApiEnabled] = useState(apiConfig.enabled)
+    const [apiUrl, setApiUrl] = useState(apiConfig.url)
+    const [apiToken, setApiToken] = useState(apiConfig.token)
+    const [savingApi, setSavingApi] = useState(false)
+    const [togglingApiEnabled, setTogglingApiEnabled] = useState(false)
+    const [pullingApi, setPullingApi] = useState(false)
     const submitLock = useRef(false)
     const batchDeleteLock = useRef(false)
     const deleteLock = useRef<number | null>(null)
@@ -121,6 +132,60 @@ export function CardsContent({ productId, productName, unusedCards }: CardsConte
         setConfirmOpen(true)
     }
 
+    const handleSaveApiConfig = async () => {
+        if (savingApi) return
+        setSavingApi(true)
+        try {
+            const result = await saveCardsApiConfig(productId, apiUrl, apiToken, apiEnabled)
+            toast.success(t('common.success'))
+            if (result.autoPulled) {
+                toast.success(t('admin.cards.apiAutoPulled'))
+            } else if (result.autoPullError) {
+                toast.error(`${t('admin.cards.apiAutoPullFailed')}: ${result.autoPullError}`)
+            }
+            router.refresh()
+        } catch (e: any) {
+            toast.error(e?.message || t('common.error'))
+        } finally {
+            setSavingApi(false)
+        }
+    }
+
+    const handleToggleApiEnabled = async () => {
+        if (togglingApiEnabled || savingApi || pullingApi) return
+        const nextEnabled = !apiEnabled
+        setTogglingApiEnabled(true)
+        try {
+            const result = await setCardsApiEnabled(productId, nextEnabled, apiUrl, apiToken)
+            setApiEnabled(nextEnabled)
+            toast.success(t('common.success'))
+            if (result.autoPulled) {
+                toast.success(t('admin.cards.apiAutoPulled'))
+            } else if (result.autoPullError) {
+                toast.error(`${t('admin.cards.apiAutoPullFailed')}: ${result.autoPullError}`)
+            }
+            router.refresh()
+        } catch (e: any) {
+            toast.error(e?.message || t('common.error'))
+        } finally {
+            setTogglingApiEnabled(false)
+        }
+    }
+
+    const handlePullOneCard = async () => {
+        if (pullingApi) return
+        setPullingApi(true)
+        try {
+            await pullCardFromApi(productId)
+            toast.success(t('admin.cards.apiPullSuccess'))
+            router.refresh()
+        } catch (e: any) {
+            toast.error(`${t('admin.cards.apiPullFailed')}: ${e?.message || ''}`)
+        } finally {
+            setPullingApi(false)
+        }
+    }
+
     return (
         <div className="space-y-8 max-w-4xl mx-auto">
             <div className="flex items-center justify-between">
@@ -134,43 +199,96 @@ export function CardsContent({ productId, productName, unusedCards }: CardsConte
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{t('admin.cards.addCards')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <form
-                            ref={formRef}
-                            onSubmit={(event) => {
-                                event.preventDefault()
-                                if (submitting) return
-                                const formData = new FormData(event.currentTarget)
-                                handleOpenConfirm(formData)
-                            }}
-                            className="space-y-4"
-                        >
-                            <input type="hidden" name="product_id" value={productId} />
-                            <Textarea name="cards" placeholder={t('admin.cards.placeholder')} rows={10} className="font-mono text-sm" required disabled={submitting} />
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">{t('admin.cards.expiryLabel')}</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <label className="text-xs text-muted-foreground">{t('admin.cards.expiryHours')}</label>
-                                        <Input name="expires_hours" type="number" min="0" step="1" disabled={submitting} />
+                <div className="space-y-8">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t('admin.cards.addCards')}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <form
+                                ref={formRef}
+                                onSubmit={(event) => {
+                                    event.preventDefault()
+                                    if (submitting) return
+                                    const formData = new FormData(event.currentTarget)
+                                    handleOpenConfirm(formData)
+                                }}
+                                className="space-y-4"
+                            >
+                                <input type="hidden" name="product_id" value={productId} />
+                                <Textarea name="cards" placeholder={t('admin.cards.placeholder')} rows={10} className="font-mono text-sm" required disabled={submitting} />
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">{t('admin.cards.expiryLabel')}</label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-muted-foreground">{t('admin.cards.expiryHours')}</label>
+                                            <Input name="expires_hours" type="number" min="0" step="1" disabled={submitting} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-muted-foreground">{t('admin.cards.expiryMinutes')}</label>
+                                            <Input name="expires_minutes" type="number" min="0" max="59" step="1" disabled={submitting} />
+                                        </div>
                                     </div>
-                                    <div className="space-y-1">
-                                        <label className="text-xs text-muted-foreground">{t('admin.cards.expiryMinutes')}</label>
-                                        <Input name="expires_minutes" type="number" min="0" max="59" step="1" disabled={submitting} />
-                                    </div>
+                                    <p className="text-xs text-muted-foreground">{t('admin.cards.expiryHint')}</p>
                                 </div>
-                                <p className="text-xs text-muted-foreground">{t('admin.cards.expiryHint')}</p>
+                                <Button type="submit" className="w-full" disabled={submitting}>
+                                    {submitting ? t('common.processing') : t('common.add')}
+                                </Button>
+                            </form>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>{t('admin.cards.apiTitle')}</CardTitle>
+                            <CardDescription>{t('admin.cards.apiHint')}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid gap-2">
+                                <label className="text-sm font-medium">{t('admin.cards.apiUrl')}</label>
+                                <Input
+                                    value={apiUrl}
+                                    onChange={(e) => setApiUrl(e.target.value)}
+                                    placeholder="https://example.com/api/card"
+                                    disabled={savingApi || pullingApi}
+                                />
                             </div>
-                            <Button type="submit" className="w-full" disabled={submitting}>
-                                {submitting ? t('common.processing') : t('common.add')}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
+                            <div className="grid gap-2">
+                                <label className="text-sm font-medium">{t('admin.cards.apiToken')}</label>
+                                <Input
+                                    type="password"
+                                    value={apiToken}
+                                    onChange={(e) => setApiToken(e.target.value)}
+                                    placeholder={t('admin.cards.apiTokenPlaceholder')}
+                                    disabled={savingApi || pullingApi}
+                                />
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <Button
+                                    variant={apiEnabled ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={handleToggleApiEnabled}
+                                    disabled={savingApi || pullingApi || togglingApiEnabled}
+                                >
+                                    {apiEnabled ? t('admin.cards.apiEnabled') : t('admin.cards.apiDisabled')}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    onClick={handleSaveApiConfig}
+                                    disabled={savingApi || pullingApi || togglingApiEnabled}
+                                >
+                                    {savingApi ? t('common.processing') : t('common.save')}
+                                </Button>
+                                <Button
+                                    onClick={handlePullOneCard}
+                                    disabled={pullingApi || savingApi || togglingApiEnabled || !apiEnabled}
+                                >
+                                    {pullingApi ? t('common.processing') : t('admin.cards.apiPullOne')}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
 
                 <Card>
                     <CardHeader>

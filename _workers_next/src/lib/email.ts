@@ -1,20 +1,50 @@
-import { getSetting } from "./db/queries"
+import { db } from "./db"
+import { settings } from "./db/schema"
+import { inArray } from "drizzle-orm"
+
+async function getSettingsUncached(keys: string[]): Promise<Record<string, string>> {
+    try {
+        const rows = await db.select({ key: settings.key, value: settings.value })
+            .from(settings)
+            .where(inArray(settings.key, keys))
+
+        const map: Record<string, string> = {}
+        for (const row of rows) {
+            map[row.key] = row.value || ""
+        }
+        return map
+    } catch (error: any) {
+        const text = `${error?.message || ""}${JSON.stringify(error || {})}`.toLowerCase()
+        if (text.includes("no such table") && text.includes("settings")) {
+            return {}
+        }
+        throw error
+    }
+}
 
 export async function getEmailSettings() {
-    const [apiKey, fromEmail, fromName, enabled, language] = await Promise.all([
-        getSetting('resend_api_key'),
-        getSetting('resend_from_email'),
-        getSetting('resend_from_name'),
-        getSetting('resend_enabled'),
-        getSetting('email_language')
+    const values = await getSettingsUncached([
+        'resend_api_key',
+        'resend_from_email',
+        'resend_from_name',
+        'resend_enabled',
+        'email_language',
+        'telegram_language',
     ])
+
+    const apiKey = (values.resend_api_key || '').trim()
+    const fromEmail = (values.resend_from_email || '').trim()
+    const fromName = (values.resend_from_name || '').trim()
+    const enabled = values.resend_enabled === 'true'
+    const emailLanguage = (values.email_language || '').trim()
+    const telegramLanguage = (values.telegram_language || '').trim()
 
     return {
         apiKey,
         fromEmail,
         fromName: fromName || 'LDC Shop',
-        enabled: enabled === 'true',
-        language: language || null
+        enabled,
+        language: emailLanguage || telegramLanguage || null
     }
 }
 
@@ -126,12 +156,7 @@ export async function sendOrderEmail(params: OrderEmailParams) {
             return { success: false, error: 'No recipient email' }
         }
 
-        // Prefer dedicated email language setting, fallback to telegram language for backward compatibility
-        const [emailLang, telegramLang] = await Promise.all([
-            getSetting('email_language'),
-            getSetting('telegram_language')
-        ])
-        const lang = params.language || emailLang || telegramLang || 'zh'
+        const lang = params.language || settings.language || 'zh'
         const template = emailTemplates[lang as keyof typeof emailTemplates] || emailTemplates.zh
 
         const response = await fetch('https://api.resend.com/emails', {
