@@ -10,6 +10,7 @@ import { setSetting, getSetting, recalcProductAggregates, recalcProductAggregate
 import { isAdminUsername } from "@/lib/admin-auth"
 import { getProductCardApiConfig, pullOneCardFromApi, saveProductCardApiConfig } from "@/lib/card-api"
 import { unstable_noStore } from "next/cache"
+import { isThemeFont } from "@/lib/theme-fonts"
 
 export async function checkAdmin() {
     const session = await auth()
@@ -45,7 +46,7 @@ export async function saveProduct(formData: FormData) {
     const price = formData.get('price') as string
     const compareAtPrice = (formData.get('compareAtPrice') as string | null) || null
     const category = formData.get('category') as string
-    const image = formData.get('image') as string
+    const image = (formData.get('image') as string || '').trim()
     const purchaseLimit = formData.get('purchaseLimit') ? parseInt(formData.get('purchaseLimit') as string) : null
     const isHot = formData.get('isHot') === 'on'
     const isShared = formData.get('isShared') === 'on'
@@ -55,6 +56,16 @@ export async function saveProduct(formData: FormData) {
     const visibilityLevel = Number.isFinite(parsedVisibility) ? parsedVisibility : -1
     if (![ -1, 0, 1, 2, 3 ].includes(visibilityLevel)) {
         throw new Error("Invalid visibility level")
+    }
+    if (image.startsWith('data:')) {
+        if (!image.startsWith('data:image/')) {
+            throw new Error("Only image data URLs are allowed")
+        }
+        if (image.length > 900_000) {
+            throw new Error("Product image is too large")
+        }
+    } else if (image.length > 2000) {
+        throw new Error("Product image URL is too long")
     }
 
     const doSave = async () => {
@@ -538,11 +549,19 @@ export async function saveShopLogo(logoUrl: string) {
     await checkAdmin()
 
     const url = logoUrl.trim()
-    if (url && url.length > 500) {
+    if (url.startsWith('data:')) {
+        if (!url.startsWith('data:image/')) {
+            throw new Error("Only image data URLs are allowed")
+        }
+        if (url.length > 1_000_000) {
+            throw new Error("Logo image is too large")
+        }
+    } else if (url && url.length > 500) {
         throw new Error("Logo URL is too long")
     }
 
     await setSetting('shop_logo', url)
+    await setSetting('shop_logo_source', url ? 'custom' : 'generated')
     await setSetting('shop_logo_updated_at', String(Date.now()))
     revalidatePath('/')
     revalidatePath('/admin/products')
@@ -650,6 +669,20 @@ export async function saveThemeColor(color: string) {
     }
 
     await setSetting('theme_color', color)
+    revalidatePath('/admin/settings')
+    revalidatePath('/')
+    updateTag('home:products')
+    updateTag('home:product-categories')
+}
+
+export async function saveThemeFont(font: string) {
+    await checkAdmin()
+
+    if (!isThemeFont(font)) {
+        throw new Error("Invalid theme font")
+    }
+
+    await setSetting('theme_font', font)
     revalidatePath('/admin/settings')
     revalidatePath('/')
     updateTag('home:products')

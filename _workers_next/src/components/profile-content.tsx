@@ -198,7 +198,23 @@ export function ProfileContent({ user, points, checkinEnabled, orderStats, notif
                             )}
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                                 <span>ID: {user.id}</span>
-                                <Badge variant="outline" className="text-xs">{t('profile.trustLevel')}: {Number.isFinite(Number(user.trustLevel)) ? user.trustLevel : 0}</Badge>
+                                <Badge variant="outline" className="text-xs">
+                                    {t('profile.trustLevel')}: {Number.isFinite(Number(user.trustLevel)) ? user.trustLevel : 0}
+                                </Badge>
+                                <span className="mx-1 text-border">·</span>
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-200">
+                                    <Coins className="h-3.5 w-3.5" />
+                                    {pointsValue}
+                                </span>
+                            </div>
+                            <div className="mt-2">
+                                <CheckInButton
+                                    enabled={checkinEnabled}
+                                    showPoints={false}
+                                    showCheckedInLabel
+                                    className="flex"
+                                    onPointsChange={setPointsValue}
+                                />
                             </div>
                         </div>
                     </div>
@@ -265,30 +281,6 @@ export function ProfileContent({ user, points, checkinEnabled, orderStats, notif
                         >
                             {desktopEnabled ? t('profile.desktopNotifications.enabled') : t('profile.desktopNotifications.disabled')}
                         </Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Points Card */}
-            <Card className="mb-6 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/30 dark:to-yellow-950/30 border-amber-200 dark:border-amber-800">
-                <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-amber-100 dark:bg-amber-900/50 rounded-full">
-                                <Coins className="h-6 w-6 text-amber-600" />
-                            </div>
-                            <div>
-                                <p className="text-sm text-muted-foreground">{t('common.credits')}</p>
-                                <p className="text-2xl font-bold text-amber-600">{pointsValue}</p>
-                            </div>
-                        </div>
-                        <CheckInButton
-                            enabled={checkinEnabled}
-                            showPoints={false}
-                            showCheckedInLabel
-                            className="shrink-0"
-                            onPointsChange={setPointsValue}
-                        />
                     </div>
                 </CardContent>
             </Card>

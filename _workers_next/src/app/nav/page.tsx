@@ -1,9 +1,7 @@
-import Link from "next/link"
 import { fetchRegistryShops } from "@/lib/registry"
 import { getServerI18n } from "@/lib/i18n/server"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ShopLogo } from "@/components/nav/shop-logo"
+import { ShopGrid } from "@/components/nav/shop-grid"
 
 export default async function NavigatorPage({ searchParams }: { searchParams?: Promise<{ q?: string | string[] }> }) {
     const { t } = await getServerI18n()
@@ -61,29 +59,7 @@ export default async function NavigatorPage({ searchParams }: { searchParams?: P
                             {t('registry.navEmpty')}
                         </div>
                     ) : (
-                        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                            {filtered.map((shop) => (
-                                <Card key={shop.url} className="group h-full border-border/60 bg-background/80 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
-                                    <CardHeader className="flex flex-row items-start gap-4">
-                                        <ShopLogo name={shop.name} url={shop.url} logo={shop.logo} />
-                                        <div className="flex flex-col gap-1">
-                                            <CardTitle className="text-lg leading-tight">{shop.name}</CardTitle>
-                                            <p className="text-xs text-muted-foreground break-all">{shop.url}</p>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="flex flex-col gap-4">
-                                        <p className="text-sm text-muted-foreground line-clamp-3">
-                                            {shop.description || t('buy.noDescription')}
-                                        </p>
-                                        <Button asChild variant="outline" className="w-fit">
-                                            <Link href={shop.url} target="_blank" rel="noreferrer">
-                                                {t('registry.visit')}
-                                            </Link>
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
+                        <ShopGrid shops={filtered} />
                     )}
                 </div>
             </div>

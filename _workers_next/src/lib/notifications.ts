@@ -1,6 +1,7 @@
 import { db } from "./db"
 import { settings } from "./db/schema"
 import { inArray } from "drizzle-orm"
+import { resolveEffectiveShopLogo } from "@/lib/shop-logo"
 
 async function getSettingsUncached(keys: string[]): Promise<Record<string, string>> {
     try {
@@ -67,6 +68,7 @@ export async function getNotificationSettings() {
         'bark_server_url',
         'bark_device_key',
         'shop_logo',
+        'shop_logo_source',
         'shop_logo_updated_at',
     ])
 
@@ -82,7 +84,7 @@ export async function getNotificationSettings() {
     const barkServerUrl = (values.bark_server_url || 'https://api.day.app').trim() || 'https://api.day.app'
     const barkDeviceKey = (values.bark_device_key || '').trim()
     const appBaseUrl = getAppBaseUrl()
-    const shopLogo = (values.shop_logo || "").trim()
+    const shopLogo = resolveEffectiveShopLogo(values.shop_logo || "", values.shop_logo_source || "").effectiveLogo
     const shopLogoUpdatedAt = (values.shop_logo_updated_at || "").trim()
     const barkIconUrl = shopLogo
         ? toAbsoluteUrl(shopLogo, appBaseUrl)
